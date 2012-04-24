@@ -1,0 +1,74 @@
+#!/bin/sh
+# author: Aaron Russo <arusso@berkeley.edu>
+# date: 23-Apr-2012
+# script: pre-commit
+# description: git pre-commit hook used to validate syntax of puppet
+#     before accepting commit
+#
+# modified from: 
+# http://projects.puppetlabs.com/projects/1/wiki/Puppet_Version_Control
+
+# count syntax errors
+ERR_COUNT=0
+
+# Store the error message in a tmp file
+ERR_MESSAGE=$(mktemp /tmp/error_msg.XXXXXX)
+
+# Determine which version of puppet we are running
+REGEX_26=^2\.6\.[0-9]+$    # 2.6.*
+PUPPET_26="2.6"
+REGEX_27=^2\.7\.[0-9]+$    # 2.7.*
+PUPPET_27="2.7"
+
+PUPPET_VERSION=`puppet --version`
+if [[ ${PUPPET_VERSION} =~ $REGEX_26 ]]; then
+    PUPPET_VERSION=${PUPPET_26}
+elif [[ ${PUPPET_VERSION} =~ ${REGEX_27} ]]; then
+    PUPPET_VERSION=${PUPPET_27}
+fi
+
+# Is this the initial commit?
+if git rev-parse --quiet --verify HEAD > /dev/null; then
+    CHECK_AGAINST=HEAD
+else
+    CHECK_AGAINST=af7312202abfc776b743ba6628708fa70e2b7a27
+fi
+
+# go through each file that was committed that is named *.rb or *.pp
+for COMMIT_FILE in `git diff-index --diff-filter=AM --name-only --cached ${CHECK_AGAINST} | egrep '\.(pp|erb)'`
+do
+    # only check files that changed
+    if [ `git cat-file -s :0:${COMMIT_FILE}` -gt 0 ]; then
+	case ${COMMIT_FILE} in
+	    *.pp) # check puppet manifests
+		if [ "${PUPPET_VERSION}" == "${PUPPET_26}" ]; then
+ 		    git cat-file blob :0:${COMMIT_FILE} | puppet --color=false --parseonly --ignoreimport > ${ERR_MESSAGE}
+		elif [ "${PUPPET_VERSION}" == "${PUPPET_27}" ]; then
+		    puppet parser validate ${COMMIT_FILE} > ${ERR_MESSAGE}
+		else
+		    echo "Unable to verify syntax with version ${PUPPET_VERSION} of puppet."
+		fi
+		;;
+	    *.erb) # check ERB templates
+		echo ".erb"
+		git cat-file blob :0:${COMMIT_FILE} | erb -x -T - | ruby -c 2> ${ERR_MESSAGE} >/dev/null ;;
+	esac
+	
+	if [ "$?" -ne 0 ]; then
+	    echo "${COMMIT_FILE}: "
+	    cat ${ERR_MESSAGE}
+	    ERR_COUNT=`expr ${ERR_COUNT} + 1`
+	fi
+    fi
+done
+
+# clean up our error log
+#rm -rf ${ERR_MESSAGE}
+
+# If we had syntax errors, lets fail this commit
+if [ "${ERR_COUNT}" -ne 0 ]; then
+    echo "Error: ${ERR_COUNT} syntax errors found, aborting commit."
+    exit 1
+fi
+
+echo "Aaron's pre-flight check found no problems..."
