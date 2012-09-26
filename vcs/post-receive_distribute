@@ -1,0 +1,38 @@
+#!/bin/sh
+# Author:  Aaron Russo <arusso@berkeley.edu>
+# Date:    26-Sept-2012
+# Purpose: git post-receive hook that pushes targeted refspec updates to 
+#          downstream bare repos 
+
+# When we create a new repo, the oldrev will be equal to $ZERO. Likewise,
+# when deleting a repo, newrev will be equal to $ZERO.
+ZERO="0000000000000000000000000000000000000000"
+
+# This will be sent back to the host that makes the push, so lets tell them
+# what we're doing and where we are doing it.
+echo == BEGIN POST-RECEIVE: $(hostname)
+echo -- preparing to perform downstream repo distribution ...
+
+# We can get multiple repos to update, each with their own line.  Thus,
+# we'll read input from STD until there is no more.
+while read oldrev newrev refname
+do
+    # we'll update the user each time we begin a new repo
+    echo "-- distributing refspec ${refname} downstream..."
+    
+    # determine if we're deleting a repo or not.  If so, we'll need to add
+    # a ':' to the front of the refname to inform the downstream repo to
+    # delete it as well
+    if [ "${newrev}" == "${ZERO}" ]; then
+        echo -- refspec ${refname} is marked for deletion...
+        refname=":$refname"
+    fi
+
+    # Add additional downstream servers here.  They should be in the form:
+    # git push <remote_name> $refname
+    # where <remote_name> is the name of an existing remote
+    # git push vcs-prod-02 $refname
+    # git push aws-east-01 $refname
+
+done
+echo == END POST-RECEIVE: $(hostname)
