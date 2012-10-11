@@ -11,6 +11,10 @@
 # Credit:
 #   This hook is based (heavily) on code found at: 
 #   http://puppetlabs.com/blog/git-workflow-and-puppet-environments/
+#
+# Updates:
+#   11-Oct-2012: Added support for ignoring tags, and not erroring because
+#                they look like poorly formed branches
 
 require 'fileutils'
 
@@ -29,7 +33,7 @@ SOURCE_REPOSITORY = File.expand_path(ENV['GIT_DIR'])
 BRANCH_MAP = {
     # This will clone/pull the master branch into the development puppet 
     # environment
-    "master" => "development",
+    "master"      => "development",
 }
 
 # Set this to a group that the puppet user is part of, such that it can read
@@ -65,7 +69,15 @@ $stdin.each_line do |line|
     branch_name = refspec.sub(%r{^refs/heads/(.*$)}) { $1 }
 
     if branch_name =~ /[\W]/
-        puts %Q{-- branch "#{branch_name}" contains non-word characters, ignoring.}
+        # before we yell at the user, lets make sure this isn't a tag
+        if branch_name =~ /^refs\/tags\/.*$/
+            # we found a tag, congratulate them and move on.
+            tag_name = refspec.sub(%r{^refs/tags/(.*)$}) { $1 }
+            puts %Q{-- tag "#{tag_name}". A new release?! Where are the beers?!}
+        else
+            # nope, just an ugly branch
+            puts %Q{-- branch "#{branch_name}" has non-word chars, ignoring.}
+        end
         next
     end
 
