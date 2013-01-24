@@ -18,9 +18,13 @@
 
 require 'fileutils'
 
-# This should be set to the where we are keeping our environments.  This
-# script assumes environments will be located at $ENV_DIR/<environment>
-ENVIRONMENT_BASEDIR = "/etc/puppet/environments"
+# This should be set to the where we are keeping our environments for this
+# particular repo.  If you use this hook in multiple repos, they should not
+# point to the same location.  This hook will create/remove folders based on
+# branch names under $ENVIRONMENT_BASEDIR/
+# Uncomment one of the following:
+# ENVIRONMENT_BASEDIR = "/etc/puppet/environments/modules"
+# ENVIRONMENT_BASEDIR = "/etc/puppet/environment/manifests"
 
 # post-receive hooks set GIT_DIR to the current repository. If you want to
 # clone from a non-local repository, set this to the URL of the repository,
