@@ -117,6 +117,11 @@ $stdin.each_line do |line|
             puts "-- creating new environment '#{environment_name}'"
             %x{git clone #{SOURCE_REPOSITORY} #{environment_path} --branch #{branch_name}}
         end
+        # Finally, make sure puppet group can read the files
+        # and then lock down read rights to just the git user
+        # and puppet group    
+        FileUtils.chown_R nil, PUPPET_GROUP, environment_path
+        FileUtils.chmod_R 0750, environment_path
     end
 end
 
