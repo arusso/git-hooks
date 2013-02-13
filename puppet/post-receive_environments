@@ -8,6 +8,10 @@
 #   This script handles the creation of puppet environments dynamically,
 #   simply by pushing a new branch to the puppet git repository.
 #
+# Note:
+#   Whatever user this hook runs as must be a member of the group named
+#   in PUPPET_GROUP
+#
 # Credit:
 #   This hook is based (heavily) on code found at: 
 #   http://puppetlabs.com/blog/git-workflow-and-puppet-environments/
@@ -15,6 +19,8 @@
 # Updates:
 #   11-Oct-2012: Added support for ignoring tags, and not erroring because
 #                they look like poorly formed branches
+#   13-Feb-2013: Updated to make use of the PUPPET_GROUP, and set the proper
+#                permissions on the environment directory
 
 require 'fileutils'
 
@@ -112,6 +118,8 @@ $stdin.each_line do |line|
             # Setup a new environment from the current repo
             puts "-- creating new environment '#{environment_name}'"
             %x{git clone #{SOURCE_REPOSITORY} #{environment_path} --branch #{branch_name}}
+            FileUtils.chown_R nil, PUPPET_GROUP, environment_path
+            FileUtils.chmod_R ENVIRONMENT_MODE, environment_path
         end
     end
 end
