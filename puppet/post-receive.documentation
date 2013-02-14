@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+
+load 'hooks/puppet-hooks-settings.rb'
+require 'fileutils'
+
+#ENVIRONMENT_BASEDIR
+#GENERATE_DOCUMENTATION
+#DOCUMENTATION_BASEDIR
+#SOURCE_REPOSITORY
+#BRANCH_MAP
+#PUPPET_GROUP
+#ENVIRONMENT_MODE
+
+exit if not GENERATE_DOCUMENTATION
+
+$stdin.each_line do |line|
+  oldrev, newrev, refspec = line.split(" ")
+
+  branch_name = refspec.sub(%r{^refs/heads/(.*$)}) { $1 }
+
+  environment_name = BRANCH_MAP[branch_name] != nil ? BRANCH_MAP[branch_name] : branch_name
+  environment_path = "#{ENVIRONMENT_BASEDIR}/#{environment_name}"
+
+  # Skip if the environment name has invalid chars
+  # or we're told to ignore
+  next if environment_name =~ /[\W]/
+  next if environment_name == "ignore"
+  next if environment_name == ""
+
+  doc_path="#{DOCUMENTATION_BASEDIR}/#{environment_name}"
+
+  if newrev =~ /^0+$/
+    if File.directory? doc_path
+      puts "deleting docs for environment '#{environment_name}'"
+      FileUtils.rm_rf doc_path, :secure => true  
+    end
+  else
+    puts "generating docs for environment '#{environment_name}'"
+    %x{puppet doc -o #{doc_path} --modulepath #{ENVIRONMENT_BASEDIR}/#{environment_name} --manifest ~/site.pp -m rdoc -r type >/dev/null 2>&1}
+    FileUtils.chown_R nil, APACHE_GROUP, doc_path
+    FileUtils.chmod_R DOCUMENTATION_MODE, doc_path
+  end
+end

@@ -8,50 +8,26 @@
 #   This script handles the creation of puppet environments dynamically,
 #   simply by pushing a new branch to the puppet git repository.
 #
-# Note:
-#   Whatever user this hook runs as must be a member of the group named
-#   in PUPPET_GROUP
-#
 # Credit:
-#   This hook is based (heavily) on code found at: 
+#   This hook is based on code found at: 
 #   http://puppetlabs.com/blog/git-workflow-and-puppet-environments/
 #
 # Updates:
 #   11-Oct-2012: Added support for ignoring tags, and not erroring because
 #                they look like poorly formed branches
-#   13-Feb-2013: Updated to make use of the PUPPET_GROUP, and set the proper
-#                permissions on the environment directory
 
+load 'hooks/puppet-hooks-settings.rb'
 require 'fileutils'
 
-# This should be set to the where we are keeping our environments for this
-# particular repo.  If you use this hook in multiple repos, they should not
-# point to the same location.  This hook will create/remove folders based on
-# branch names under $ENVIRONMENT_BASEDIR/
-# Uncomment one of the following:
-# ENVIRONMENT_BASEDIR = "/etc/puppet/environments/modules"
-# ENVIRONMENT_BASEDIR = "/etc/puppet/environment/manifests"
-
-# post-receive hooks set GIT_DIR to the current repository. If you want to
-# clone from a non-local repository, set this to the URL of the repository,
-# such as git@git.host:puppet.git
-SOURCE_REPOSITORY = File.expand_path(ENV['GIT_DIR'])
-
-# We'll use the following hash to map git branches to environments, if the
-# branch name does not match the environment it should represent.  Useful
-# for mapping 'master' to a default.
-BRANCH_MAP = {
-    # This will clone/pull the master branch into the development puppet 
-    # environment
-    "master"      => "development",
-}
-
-# Set this to a group that the puppet user is part of, such that it can read
-# the repo to obtain manifest information
-PUPPET_GROUP = "puppet"
-
-# Repos will be created with the following file mode
-ENVIRONMENT_MODE = 0750
+# The following can be found in the settings file
+#
+# ENVIRONMENT_BASEDIR
+# GENERATE_DOCUMENTATION
+# DOCUMENTATION_BASEDIR
+# SOURCE_REPOSITORY
+# BRANCH_MAP 
+# PUPPET_GROUP
+# ENVIRONMENT_MODE
 
 # The git environment variable needs to be deleted, otherwise it will
 # override the system default and cause issues when we try to initialize
@@ -65,14 +41,7 @@ unless File.directory? ENVIRONMENT_BASEDIR
     exit 1
 end
 
-# You can push multiple refspecs at once, like:
-# $ git push origin branch-a branch-b
-# So we'll handle each one
 $stdin.each_line do |line|
-    # post-receive is provided 3 parameters via std for each push
-    # old_revision  : revision we are updating from
-    # new_revision  : revision we are updating to
-    # refspec       : git refspec ie. refs/heads/<branch>
     old_revision, new_revision, refspec = line.split(" ")
 
     # Get the branch name from the refspec, and sanitize the input
@@ -83,10 +52,9 @@ $stdin.each_line do |line|
         if branch_name =~ /^refs\/tags\/.*$/
             # we found a tag, congratulate them and move on.
             tag_name = refspec.sub(%r{^refs/tags/(.*)$}) { $1 }
-            puts %Q{-- tag "#{tag_name}". A new release?! Where are the beers?!}
         else
             # nope, just an ugly branch
-            puts %Q{-- branch "#{branch_name}" has non-word chars, ignoring.}
+            puts %Q{invalid branch name "#{branch_name}", ignoring}
         end
         next
     end
@@ -99,13 +67,11 @@ $stdin.each_line do |line|
         environment_path = "#{ENVIRONMENT_BASEDIR}/#{branch_name}"
     end
 
-    puts "-- branch \'#{branch_name}\' maps to environment \'#{environment_name}\'"
-
     if new_revision =~ /^0+$/
         # We've received a push with a null revision, which means we should
         # delete the given branch.
-        puts "-- deleting existing environment #{environment_name}"
         if File.directory? environment_path
+            puts "deleting environment #{environment_name}"
             FileUtils.rm_rf environment_path, :secure => true
         end
     else
@@ -114,13 +80,12 @@ $stdin.each_line do |line|
         if File.directory? environment_path
             # Update an existing environment.  We do a fetch and then a
             # reset in case someone did a force push to a branch
-            puts "-- updating existing environment #{environment_name}"
+            puts "updating environment #{environment_name}"
             Dir.chdir environment_path
             %x{git fetch --all}
             %x{git reset --hard "origin/#{branch_name}"}
         else
-            # Setup a new environment from the current repo
-            puts "-- creating new environment '#{environment_name}'"
+            puts "generating environment #{environment_name}"
             %x{git clone #{SOURCE_REPOSITORY} #{environment_path} --branch #{branch_name}}
             FileUtils.chown_R nil, PUPPET_GROUP, environment_path
             FileUtils.chmod_R ENVIRONMENT_MODE, environment_path

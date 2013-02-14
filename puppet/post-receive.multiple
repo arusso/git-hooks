@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# This hook should be renamed or symlinked to post-receive. Upon being called
+# it will call your other hooks. If you ever need to add any other hooks,
+# you can just add another entry in the loop.
+
+BASEDIR=`pwd`/hooks
+
+while read oldrev newrev refname
+do
+  echo $oldrev $newrev $refname | /usr/bin/ruby $BASEDIR/post-receive.environments
+  echo $oldrev $newrev $refname | /usr/bin/ruby $BASEDIR/post-receive.documentation
+done
