@@ -2,6 +2,7 @@
 
 load 'hooks/puppet-hooks-settings.rb'
 require 'fileutils'
+require 'pathname'
 
 #ENVIRONMENT_BASEDIR
 #GENERATE_DOCUMENTATION
@@ -36,6 +37,9 @@ $stdin.each_line do |line|
     end
   else
     puts "generating docs for environment '#{environment_name}'"
+    if not (Pathname.new ENVIRONMENT_MANIFEST).absolute?
+      ENVIRONMENT_MANIFEST="#{ENVIRONMENT_BASEDIR}/#{environment_name}/#{ENVIRONMENT_MANIFEST}"
+    end
     %x{puppet doc -o #{doc_path} --modulepath #{ENVIRONMENT_BASEDIR}/#{environment_name}/#{ENVIRONMENT_MODULEDIR} --manifest #{ENVIRONMENT_MANIFEST} -m rdoc -r type >/dev/null 2>&1}
     FileUtils.chown_R nil, APACHE_GROUP, doc_path
     FileUtils.chmod_R DOCUMENTATION_MODE, doc_path
