@@ -3,6 +3,16 @@
 # $ENVIRONMENT_BASEDIR/production
 ENVIRONMENT_BASEDIR = "/var/lib/puppet/env/"
 
+# Path to the site.pp we want to use. Relative paths are relative to the top
+# level of the repo
+#
+ENVIRONMENT_MANIFEST = "site.pp"
+
+# Where our modules are located. Relative paths are relative to the top level of
+# the git repository
+#
+ENVIRONMENT_MODULEDIR = "modules/"
+
 # Enable/Disable documentation generation using puppet doc
 GENERATE_DOCUMENTATION=true
 
