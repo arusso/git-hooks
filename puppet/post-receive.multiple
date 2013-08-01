@@ -11,3 +11,21 @@ do
   echo $oldrev $newrev $refname | /usr/bin/ruby $BASEDIR/post-receive.environments
   echo $oldrev $newrev $refname | /usr/bin/ruby $BASEDIR/post-receive.documentation
 done
+
+# We should graceful the puppetmaster (if it's running behind apache) so it will
+# properly read the new configs we just pushed.  Otherwise, some changes won't
+# be picked up until one of the puppetmaster processes dies and is respawned,
+# which can take some time.
+#
+# This code is designed for redhat, but can easily be tailored to other distros
+#
+# Uncomment the following code to have the puppet master restart after each push
+#
+#/usr/bin/sudo /sbin/service httpd status 1>/dev/null 2>/dev/null
+#if [ $? -eq 0 ]; then
+# echo -n "reloading puppetmaster..."
+# /usr/bin/sudo /sbin/service httpd graceful 1>/dev/null 2>/dev/null
+# if [ $? -eq 0 ]; then echo "done"; else echo "failed!"; fi
+#else
+# echo "puppetmaster appears to be down... not starting."
+#fi
